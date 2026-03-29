@@ -2,8 +2,11 @@
 import os
 
 import json
+
 from openai import OpenAI
 from dotenv import load_dotenv
+
+from tools.TodoManager import TodoManager
 from tools.Tools import Tools
 
 class Agent:
@@ -25,6 +28,7 @@ class Agent:
 
 
     def sent_message(self,message: list, stream: bool = False,tools: list = Tools.get_tools()):
+        rounds_since_todo = 0
         while True:
             response = self.client.chat.completions.create(
                 model = self.MODEL_ID,
@@ -39,6 +43,7 @@ class Agent:
                 message.append({"role" : "assistant", "content" : content})
                 return
             # results = []
+            used_todo = False
             message.append({"role" : "assistant", "content" : None ,
                             "tool_calls": [{"id": tool_call.id,
                             "type": "function",
@@ -51,9 +56,14 @@ class Agent:
                 arguments = json.loads(arguments)
                 print(f"\033[33m$ {arguments}\033[0m")
                 func = Tools.tool_handlers[tool_name]
-                result = func(**arguments)
-                print("result:",result)
+                result = func(**arguments) if func else f"Unknown tool: {tool_name}"
+                print(f"\033[34m{tool_name} result:{result}\033[0m")
                 # results.append({"type" : "tool_result","tool_call_id": tool_id,"content": result})
                 message.append({"role" : "tool", "tool_call_id": tool_id, "content": result })
+                if tool_name == "todo":
+                    used_todo = True
+            rounds_since_todo = 0 if used_todo else rounds_since_todo + 1
+            if rounds_since_todo > 3:
+                message.append({"role" : "user", "content" : "reminder:Update your todos."})
 
 
