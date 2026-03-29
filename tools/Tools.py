@@ -29,12 +29,16 @@ template:
         }
     ]
 '''
-
+import os
+import subprocess
+from pathlib import Path
+from utils.ConfigUtils import *
 
 class Tools:
     tools = []
+    tool_handlers = {}
     @classmethod
-    def add_tool(cls,name : str, func_description : str, properties : dict ) -> None:
+    def add_tool(cls,name : str, func_description : str, properties : dict , func : callable = None) -> None:
         Tools.tools.append({
             "type": "function",
             "function": {
@@ -47,7 +51,68 @@ class Tools:
                 }
             }
         })
+        if func:
+            Tools.tool_handlers[name] = func
+
 
     @classmethod
     def get_tools(cls) -> list:
         return Tools.tools
+    @classmethod
+    def run_bash(cls,command: str) -> str:
+        dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+        if any(d in command for d in dangerous):
+            return "Error: Dangerous command blocked"
+        try:
+            r = subprocess.run(command, shell=True, cwd=os.getcwd(),
+                               capture_output=True, text=True, timeout=120)
+            out = (r.stdout + r.stderr).strip()
+            return out[:50000] if out else "(no output)"
+        except subprocess.TimeoutExpired:
+            return "Error: Timeout (120s)"
+    @classmethod
+    def safe_path(cls,path: str) -> str:
+        BASE_PATH = Path(__file__).parent.parent.absolute()
+        CONFIG_PATH = os.path.join(BASE_PATH, "config", "config.yaml")
+        WORKDIR = ConfigUtils.load_config(CONFIG_PATH)["WORKDIR"]["path"]
+        path = Path(WORKDIR + path)
+        p = Path(WORKDIR)
+        if not path.is_relative_to(p):
+            raise ValueError(f"Path escapes workspace: {path}")
+        return path.resolve()
+    @classmethod
+    def read_file(cls,path: str) -> str:
+        path = Tools.safe_path(path)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            return "File not found"
+        except PermissionError:
+            return "Permission denied"
+        except Exception as e:
+            return f"Error: {e}"
+
+    @classmethod
+    def write_file(cls,path: str, content: str) -> str:
+        path = Tools.safe_path(path)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+                return "OK"
+        except FileNotFoundError:
+            return "File not found"
+        except PermissionError:
+            return "Permission denied"
+        except Exception as e:
+            return f"Error: {e}"
+
+
+
+
+
+if __name__ == '__main__':
+    path = Tools.safe_path("save")
+    print(path)
+    file = Tools.read_file("GetTime.py")
+    print(file)
