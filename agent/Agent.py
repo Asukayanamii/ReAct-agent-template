@@ -6,7 +6,6 @@ import json
 from openai import OpenAI
 from dotenv import load_dotenv
 
-from tools.TodoManager import TodoManager
 from tools.Tools import Tools
 
 class Agent:
@@ -33,8 +32,8 @@ class Agent:
             response = self.client.chat.completions.create(
                 model = self.MODEL_ID,
                 messages = message,
-                tools=tools,  # 把工具传给模型
-                tool_choice="auto",  # 自动判断是否调用工具（默认值）
+                tools=tools,
+                tool_choice="auto",
                 stream = stream
             )
             content = response.choices[0].message.content
@@ -55,9 +54,15 @@ class Agent:
                 arguments = tool_call.function.arguments
                 arguments = json.loads(arguments)
                 print(f"\033[33m$ {arguments}\033[0m")
-                func = Tools.tool_handlers[tool_name]
-                result = func(**arguments) if func else f"Unknown tool: {tool_name}"
-                print(f"\033[34m{tool_name} result:{result}\033[0m")
+                if tool_name == "task":
+                    from agent.SubAgent import SubAgent
+                    sub_agent = SubAgent()
+                    result = sub_agent.run_SubAgent(arguments["prompt"])
+                    print(f"\033[33m> task ({arguments.get("description","subtask")}): {arguments["prompt"]}\033[0m")
+                else:
+                    func = Tools.tool_handlers[tool_name]
+                    result = func(**arguments) if func else f"Unknown tool: {tool_name}"
+                print(f"\033[34m{tool_name} result:\n{result}\033[0m")
                 # results.append({"type" : "tool_result","tool_call_id": tool_id,"content": result})
                 message.append({"role" : "tool", "tool_call_id": tool_id, "content": result })
                 if tool_name == "todo":

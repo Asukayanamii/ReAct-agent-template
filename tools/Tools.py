@@ -60,16 +60,19 @@ class Tools:
         return Tools.tools
     @classmethod
     def run_bash(cls,command: str) -> str:
-        dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
+        #去除了"shutdown"
+        dangerous = ["rm -rf /", "sudo", "reboot", "> /dev/"]
         if any(d in command for d in dangerous):
             return "Error: Dangerous command blocked"
         try:
             r = subprocess.run(command, shell=True, cwd=os.getcwd(),
-                               capture_output=True, text=True, timeout=120)
+                               capture_output=True, text=True, timeout=120,encoding="utf-8",errors='replace')
             out = (r.stdout + r.stderr).strip()
             return out[:50000] if out else "(no output)"
         except subprocess.TimeoutExpired:
             return "Error: Timeout (120s)"
+        except Exception as e:
+            return f"Error: {e}"
     @classmethod
     def safe_path(cls,path: str) -> str:
         BASE_PATH = Path(__file__).parent.parent.absolute()
@@ -107,12 +110,20 @@ class Tools:
         except Exception as e:
             return f"Error: {e}"
 
+    @classmethod
+    def run_edit(cls,path: str, old_text: str, new_text: str) -> str:
+        try:
+            fp = Tools.safe_path(path)
+            content = fp.read_text()
+            if old_text not in content:
+                return f"Error: Text not found in {path}"
+            fp.write_text(content.replace(old_text, new_text, 1))
+            return f"Edited {path}"
+        except Exception as e:
+            return f"Error: {e}"
 
 
 
 
 if __name__ == '__main__':
-    path = Tools.safe_path("save")
-    print(path)
-    file = Tools.read_file("GetTime.py")
-    print(file)
+    print("hello")

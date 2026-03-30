@@ -1,3 +1,2 @@
 WORKDIR:
-#  main.py与data的相对路径
-  path: ./data/
+  path: D:\py_project\ReAct\
