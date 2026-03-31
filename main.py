@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from agent import Agent
+from tools.SkillLoader import SkillLoader
 from tools.TodoManager import TodoManager
 from tools.Tools import Tools
 from utils.ConfigUtils import *
@@ -13,6 +14,7 @@ if __name__ == '__main__':
     data_dir = str(Path(os.getcwd()))+"\\"
     ConfigUtils.save_config(config_path, {"WORKDIR": {"path": data_dir}})
     TODO = TodoManager()
+    skill_loader = SkillLoader(Path(os.getcwd()+"\\skills"))
     # 注册工具,properties格式为{"参数名":{"type":"参数类型","description":"参数描述"}}
     Tools.add_tool("bash","运行bash命令",{"command":{"type":"string","description":"bash命令"}},func = Tools.run_bash)
     Tools.add_tool("read_file" ,"读取文件",{"path":{"type":"string","description":"路径"}},func = Tools.read_file)
@@ -36,11 +38,16 @@ if __name__ == '__main__':
     Tools.add_tool("task","Spawn a subagent with fresh context. It shares the filesystem but not conversation history.",
                    {"prompt": {"type": "string", "description": "Prompt for the subagent"},
                     "description": {"type": "string", "description": "Short description of the task"}})
+    Tools.add_tool("load_skill","Load specialized knowledge by name.",{"name": {"type": "string", "description": "Skill name to load"}},skill_loader.get_content)
     agent = Agent.Agent()
     history = []
     history.append({"role": "system", "content": f"""You are a coding agent at {Path.cwd()}.
-Use the todo tool to plan multi-step tasks. Mark in_progress before starting, completed when done.
-Prefer tools over prose.Use the task tool to delegate exploration or subtasks."""})
+        Use the todo tool to plan multi-step tasks. Mark in_progress before starting, completed when done.
+        Prefer tools over prose.Dont forget to use the task tool to delegate exploration or subtasks.
+        Use load_skill to access specialized knowledge before tackling unfamiliar topics.
+        
+        Skills available:
+        {skill_loader.get_descriptions()}"""})
     while True:
         try:
             try :
